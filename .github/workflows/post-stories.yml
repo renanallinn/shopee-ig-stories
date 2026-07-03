@@ -37,6 +37,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r worker/requirements.txt
 
+      - name: Install fonts for story image generation
+        # Installed explicitly rather than assumed preinstalled on the
+        # runner image — story_image.py looks for these exact paths.
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-dejavu-core
+
       - name: Delete old generated images
         # Images only need to stay public long enough for Instagram to fetch
         # them once at publish time — prune anything older than 2 days so

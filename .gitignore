@@ -42,6 +42,7 @@ next-env.d.ts
 
 # worker (Python)
 worker/.venv
+worker/.vendor
 worker/__pycache__
 worker/manifest.json
 # generated story images ARE committed on purpose — they're hosted via
