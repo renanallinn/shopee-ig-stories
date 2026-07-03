@@ -47,3 +47,6 @@ worker/__pycache__
 worker/manifest.json
 # generated story images ARE committed on purpose — they're hosted via
 # raw.githubusercontent.com as the public image_url Instagram fetches from.
+
+.vercel
+.env*
