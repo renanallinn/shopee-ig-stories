@@ -1,0 +1,10 @@
+[
+  {
+    "id": "manual-1",
+    "name": "Nome do produto",
+    "price": "R$ 49,90",
+    "image_url": "https://exemplo.com/imagem-do-produto.jpg",
+    "affiliate_link": "https://s.shopee.com.br/SEU-LINK-DE-AFILIADO",
+    "shop_name": "Nome da loja"
+  }
+]

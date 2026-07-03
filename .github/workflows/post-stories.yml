@@ -1,0 +1,63 @@
+name: Post Instagram Stories
+
+on:
+  schedule:
+    # Every hour -> ~24 posts/day per tenant, comfortably under Instagram's
+    # 100 posts/24h limit. Cron runs in UTC and can be delayed a few minutes
+    # under GitHub's load; that's fine for Stories.
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (generate images, do not push/publish)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  post-stories:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
+      FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
+      CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+      DRY_RUN_FLAG: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+      IS_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r worker/requirements.txt
+
+      - name: Delete old generated images
+        # Images only need to stay public long enough for Instagram to fetch
+        # them once at publish time — prune anything older than 2 days so
+        # the repo doesn't grow forever.
+        run: find worker/generated -type f -mtime +2 -delete 2>/dev/null || true
+
+      - name: Generate story images
+        run: python worker/orchestrator.py generate $DRY_RUN_FLAG
+
+      - name: Commit and push generated images
+        if: env.IS_DRY_RUN != 'true'
+        run: |
+          git config user.name "shopee-stories-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A worker/generated
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: generated stories for $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          else
+            echo "Nothing new to commit."
+          fi
+
+      - name: Publish stories to Instagram
+        run: python worker/orchestrator.py publish $DRY_RUN_FLAG
