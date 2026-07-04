@@ -50,3 +50,4 @@ worker/manifest.json
 
 .vercel
 .env*
+.supabase-db-password.txt
