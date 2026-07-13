@@ -54,9 +54,16 @@ Facebook vinculada.
 2. Em "Adicionar casos de uso", filtre por **"Gerenciamento de conteúdo"** e
    marque **"Gerenciar mensagens e conteúdo no Instagram"**. Não é necessário
    vincular a um portfólio empresarial nessa fase (beta fechado).
-3. Em Configurações do app → Básico, copie o `App ID` e o `App Secret`.
-4. Em **Login do Facebook para Empresas → Configurações**, no campo "URIs de
-   redirecionamento do OAuth válidos", adicione:
+3. Clique em "Personalizar o caso de uso 'Gerenciar mensagens e conteúdo no
+   Instagram'" (no Painel) → aba **"Configuração da API com login do
+   Instagram"**. Copie o **Instagram App ID** e o **Instagram App Secret**
+   mostrados ali — são diferentes do App ID principal do app (esse detalhe
+   nos custou uma sessão de debug inteira; a API do Instagram exige
+   especificamente essas credenciais, não as de "Configurações do app →
+   Básico").
+4. Ainda nessa tela (ou em **Login do Facebook para Empresas →
+   Configurações**), no campo "URIs de redirecionamento do OAuth válidos",
+   adicione:
    - `https://SEU-DOMINIO/api/instagram/callback` (produção)
    - `http://localhost:3000/api/instagram/callback` (dev local)
 5. **Enquanto o app estiver em modo de desenvolvimento** (antes do App
@@ -73,7 +80,7 @@ Facebook vinculada.
 Copie `.env.local.example` para `.env.local` e preencha:
 
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — do passo 1.
-- `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` — do passo 2.
+- `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` — do passo 2.
 - `CREDENTIALS_ENCRYPTION_KEY` — gere com:
   ```bash
   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
@@ -88,7 +95,6 @@ No repositório GitHub, em Settings → Secrets and variables → Actions, crie:
 - `SUPABASE_URL` — mesmo valor de `NEXT_PUBLIC_SUPABASE_URL`.
 - `SUPABASE_SERVICE_ROLE_KEY` — a `service_role key` do passo 1 (nunca exponha
   essa chave no site).
-- `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` — mesmos valores do passo 2.
 - `CREDENTIALS_ENCRYPTION_KEY` — mesmo valor gerado no passo 3 (**tem que ser
   idêntico** ao usado no site, senão o worker não consegue descriptografar as
   credenciais salvas).

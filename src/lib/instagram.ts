@@ -17,7 +17,7 @@ export const INSTAGRAM_OAUTH_SCOPES = [
 
 export function buildInstagramOAuthUrl(redirectUri: string, state: string) {
   const url = new URL("https://www.instagram.com/oauth/authorize");
-  url.searchParams.set("client_id", process.env.FACEBOOK_APP_ID!);
+  url.searchParams.set("client_id", process.env.INSTAGRAM_APP_ID!);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("state", state);
   url.searchParams.set("scope", INSTAGRAM_OAUTH_SCOPES);
@@ -35,8 +35,8 @@ async function instagramApiError(res: Response, path: string) {
 // form body, unlike the rest of the Graph API calls below.
 export async function exchangeCodeForShortLivedToken(code: string, redirectUri: string) {
   const body = new URLSearchParams({
-    client_id: process.env.FACEBOOK_APP_ID!,
-    client_secret: process.env.FACEBOOK_APP_SECRET!,
+    client_id: process.env.INSTAGRAM_APP_ID!,
+    client_secret: process.env.INSTAGRAM_APP_SECRET!,
     grant_type: "authorization_code",
     redirect_uri: redirectUri,
     code,
@@ -53,7 +53,7 @@ export async function exchangeCodeForShortLivedToken(code: string, redirectUri: 
 export async function exchangeForLongLivedToken(shortLivedToken: string) {
   const url = new URL("https://graph.instagram.com/access_token");
   url.searchParams.set("grant_type", "ig_exchange_token");
-  url.searchParams.set("client_secret", process.env.FACEBOOK_APP_SECRET!);
+  url.searchParams.set("client_secret", process.env.INSTAGRAM_APP_SECRET!);
   url.searchParams.set("access_token", shortLivedToken);
   const res = await fetch(url.toString());
   if (!res.ok) throw await instagramApiError(res, "/access_token");
