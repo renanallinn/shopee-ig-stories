@@ -1,21 +1,22 @@
-// Helpers for the "Instagram API with Facebook Login" OAuth flow.
-// Docs: https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/get-started
+// Helpers for "Instagram API with Instagram Login" (Business Login).
+// Docs: https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login
+//
+// This flow does NOT go through a Facebook Page — the user authorizes
+// directly with their Instagram professional account, and everything
+// (auth, refresh, publish) happens against graph.instagram.com /
+// api.instagram.com with a single Instagram User access token.
 //
 // GRAPH_API_VERSION drifts every few months when Meta deprecates old
 // versions — bump it if calls start failing with a version-deprecated error.
 const GRAPH_API_VERSION = "v21.0";
-const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
 export const INSTAGRAM_OAUTH_SCOPES = [
-  "instagram_basic",
-  "instagram_content_publish",
-  "pages_show_list",
-  "pages_read_engagement",
-  "business_management",
+  "instagram_business_basic",
+  "instagram_business_content_publish",
 ].join(",");
 
-export function buildFacebookOAuthUrl(redirectUri: string, state: string) {
-  const url = new URL(`https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth`);
+export function buildInstagramOAuthUrl(redirectUri: string, state: string) {
+  const url = new URL("https://www.instagram.com/oauth/authorize");
   url.searchParams.set("client_id", process.env.FACEBOOK_APP_ID!);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("state", state);
@@ -24,79 +25,51 @@ export function buildFacebookOAuthUrl(redirectUri: string, state: string) {
   return url.toString();
 }
 
-async function graphGet<T>(path: string, params: Record<string, string>) {
-  const url = new URL(`${GRAPH_BASE}${path}`);
-  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
-  const res = await fetch(url.toString());
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(
-      `Graph API error on ${path}: ${json?.error?.message ?? res.statusText}`,
-    );
-  }
-  return json as T;
+async function instagramApiError(res: Response, path: string) {
+  const json = await res.json().catch(() => ({}));
+  return new Error(`Instagram API error on ${path}: ${json?.error_message ?? json?.error?.message ?? res.statusText}`);
 }
 
-export async function exchangeCodeForUserToken(code: string, redirectUri: string) {
-  const data = await graphGet<{ access_token: string }>("/oauth/access_token", {
+// Step 1: exchange the OAuth `code` for a short-lived Instagram User token.
+// Note the different host (api.instagram.com) and that this is a POST with a
+// form body, unlike the rest of the Graph API calls below.
+export async function exchangeCodeForShortLivedToken(code: string, redirectUri: string) {
+  const body = new URLSearchParams({
     client_id: process.env.FACEBOOK_APP_ID!,
     client_secret: process.env.FACEBOOK_APP_SECRET!,
+    grant_type: "authorization_code",
     redirect_uri: redirectUri,
     code,
   });
-  return data.access_token;
-}
-
-export async function exchangeForLongLivedUserToken(shortLivedToken: string) {
-  const data = await graphGet<{ access_token: string; expires_in: number }>(
-    "/oauth/access_token",
-    {
-      grant_type: "fb_exchange_token",
-      client_id: process.env.FACEBOOK_APP_ID!,
-      client_secret: process.env.FACEBOOK_APP_SECRET!,
-      fb_exchange_token: shortLivedToken,
-    },
-  );
-  return data;
-}
-
-interface FacebookPage {
-  id: string;
-  access_token: string;
-  instagram_business_account?: { id: string };
-}
-
-// Finds the first Facebook Page (belonging to the authorizing user) that has
-// an Instagram Business/Creator account linked to it. MVP simplification:
-// if someone manages multiple pages, only the first linked one is used.
-export async function findLinkedInstagramAccount(longLivedUserToken: string) {
-  const { data: pages } = await graphGet<{ data: FacebookPage[] }>("/me/accounts", {
-    access_token: longLivedUserToken,
-    fields: "id,access_token,instagram_business_account",
+  const res = await fetch("https://api.instagram.com/oauth/access_token", {
+    method: "POST",
+    body,
   });
-
-  const pageWithIg = pages.find((page) => page.instagram_business_account?.id);
-  if (!pageWithIg?.instagram_business_account) {
-    return null;
-  }
-
-  const igAccount = await graphGet<{ id: string; username: string }>(
-    `/${pageWithIg.instagram_business_account.id}`,
-    { access_token: pageWithIg.access_token, fields: "id,username" },
-  );
-
-  return {
-    igBusinessAccountId: igAccount.id,
-    igUsername: igAccount.username,
-    // Publishing calls use the Page access token, not the user token.
-    pageAccessToken: pageWithIg.access_token,
-  };
+  if (!res.ok) throw await instagramApiError(res, "/oauth/access_token");
+  return (await res.json()) as { access_token: string; user_id: number };
 }
 
-// Long-lived Page access tokens derived this way don't have a fixed expiry
-// while the underlying user token is valid, but we still track an
-// expires_at (~60 days out) so the worker knows when to prompt for
-// re-connection if it ever does go stale.
-export function sixtyDaysFromNow() {
-  return new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+// Step 2: exchange the short-lived token for a 60-day long-lived one.
+export async function exchangeForLongLivedToken(shortLivedToken: string) {
+  const url = new URL("https://graph.instagram.com/access_token");
+  url.searchParams.set("grant_type", "ig_exchange_token");
+  url.searchParams.set("client_secret", process.env.FACEBOOK_APP_SECRET!);
+  url.searchParams.set("access_token", shortLivedToken);
+  const res = await fetch(url.toString());
+  if (!res.ok) throw await instagramApiError(res, "/access_token");
+  return (await res.json()) as { access_token: string; expires_in: number };
+}
+
+// Step 3: fetch the connected account's id + username with the new token.
+export async function fetchInstagramAccount(accessToken: string) {
+  const url = new URL(`https://graph.instagram.com/${GRAPH_API_VERSION}/me`);
+  url.searchParams.set("fields", "id,username");
+  url.searchParams.set("access_token", accessToken);
+  const res = await fetch(url.toString());
+  if (!res.ok) throw await instagramApiError(res, "/me");
+  return (await res.json()) as { id: string; username: string };
+}
+
+export function expiresInToDate(expiresInSeconds: number) {
+  return new Date(Date.now() + expiresInSeconds * 1000);
 }

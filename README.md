@@ -45,22 +45,28 @@ cadastro público.
 
 ### 2. App no Meta for Developers
 
-1. Crie um app em [developers.facebook.com](https://developers.facebook.com/apps),
-   tipo "Business".
-2. Adicione o produto **Instagram Graph API** (via "Instagram" > configuração
-   com Facebook Login for Business).
-3. Em App Settings → Basic, copie o `App ID` e o `App Secret`.
-4. Em App Settings → Basic → App Domains, e em "Valid OAuth Redirect URIs"
-   (dentro das configurações do produto Facebook Login), adicione:
+Usamos o fluxo **"Instagram API with Instagram Login" (Business Login)** — o
+usuário autoriza direto com a conta Instagram dele, sem precisar de Página do
+Facebook vinculada.
+
+1. Crie um app em [developers.facebook.com/apps](https://developers.facebook.com/apps),
+   tipo "Empresa".
+2. Em "Adicionar casos de uso", filtre por **"Gerenciamento de conteúdo"** e
+   marque **"Gerenciar mensagens e conteúdo no Instagram"**. Não é necessário
+   vincular a um portfólio empresarial nessa fase (beta fechado).
+3. Em Configurações do app → Básico, copie o `App ID` e o `App Secret`.
+4. Em **Login do Facebook para Empresas → Configurações**, no campo "URIs de
+   redirecionamento do OAuth válidos", adicione:
    - `https://SEU-DOMINIO/api/instagram/callback` (produção)
    - `http://localhost:3000/api/instagram/callback` (dev local)
 5. **Enquanto o app estiver em modo de desenvolvimento** (antes do App
-   Review): vá em App Roles → Roles → Instagram Testers, adicione o
-   usuário/username do Instagram de cada beta tester. A pessoa precisa
-   aceitar o convite no app do Instagram em Configurações → Apps e sites →
-   Convites de teste.
-6. A conta Instagram de cada tester precisa ser Business ou Creator e estar
-   vinculada a uma Página do Facebook.
+   Review): vá em Funções do app → Funções, adicione cada beta tester como
+   Administrador/Desenvolvedor/Testador do app, com o e-mail da conta Meta
+   dela. A pessoa precisa aceitar o convite.
+6. A conta Instagram de cada tester precisa ser Business ou Creator (não
+   precisa mais de Página do Facebook vinculada).
+7. Escopos usados pelo app (já configurados no código):
+   `instagram_business_basic`, `instagram_business_content_publish`.
 
 ### 3. Variáveis de ambiente do site (Vercel)
 

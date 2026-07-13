@@ -10,7 +10,6 @@ create table if not exists public.store_connections (
   ig_business_account_id text,
   ig_username text,
   ig_access_token_encrypted text,
-  ig_user_token_encrypted text,
   ig_token_expires_at timestamptz,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),

@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { encryptSecret } from "@/lib/crypto";
 import {
-  exchangeCodeForUserToken,
-  exchangeForLongLivedUserToken,
-  findLinkedInstagramAccount,
-  sixtyDaysFromNow,
+  exchangeCodeForShortLivedToken,
+  exchangeForLongLivedToken,
+  fetchInstagramAccount,
+  expiresInToDate,
 } from "@/lib/instagram";
 
 export async function GET(request: Request) {
@@ -43,27 +43,19 @@ export async function GET(request: Request) {
 
   try {
     const redirectUri = new URL("/api/instagram/callback", request.url).toString();
-    const shortLivedToken = await exchangeCodeForUserToken(code, redirectUri);
-    const { access_token: longLivedUserToken } =
-      await exchangeForLongLivedUserToken(shortLivedToken);
+    const { access_token: shortLivedToken } = await exchangeCodeForShortLivedToken(code, redirectUri);
+    const { access_token: longLivedToken, expires_in: expiresIn } =
+      await exchangeForLongLivedToken(shortLivedToken);
 
-    const linkedAccount = await findLinkedInstagramAccount(longLivedUserToken);
-    if (!linkedAccount) {
-      dashboardUrl.searchParams.set(
-        "ig_error",
-        "Nenhuma conta Instagram Business/Creator vinculada a uma Página do Facebook foi encontrada nessa conta.",
-      );
-      return NextResponse.redirect(dashboardUrl);
-    }
+    const account = await fetchInstagramAccount(longLivedToken);
 
     const { error } = await supabase.from("store_connections").upsert(
       {
         user_id: user.id,
-        ig_business_account_id: linkedAccount.igBusinessAccountId,
-        ig_username: linkedAccount.igUsername,
-        ig_access_token_encrypted: encryptSecret(linkedAccount.pageAccessToken),
-        ig_user_token_encrypted: encryptSecret(longLivedUserToken),
-        ig_token_expires_at: sixtyDaysFromNow().toISOString(),
+        ig_business_account_id: account.id,
+        ig_username: account.username,
+        ig_access_token_encrypted: encryptSecret(longLivedToken),
+        ig_token_expires_at: expiresInToDate(expiresIn).toISOString(),
       },
       { onConflict: "user_id" },
     );

@@ -27,7 +27,7 @@ from pathlib import Path
 
 from crypto_util import decrypt_secret, encrypt_secret
 from fetch_products import NoProductsAvailable, get_products_for_tenant
-from instagram_client import InstagramApiError, needs_refresh, publish_story, refresh_tokens
+from instagram_client import InstagramApiError, needs_refresh, publish_story, refresh_token
 from story_image import generate_story_image
 from supabase_client import get_service_client
 
@@ -126,21 +126,17 @@ def run_publish(dry_run: bool) -> None:
                 .data
             )
 
-            page_token_encrypted = connection["ig_access_token_encrypted"]
+            access_token_encrypted = connection["ig_access_token_encrypted"]
             ig_business_account_id = connection["ig_business_account_id"]
 
             if needs_refresh(connection.get("ig_token_expires_at")):
                 logger.info("Refreshing Instagram token for user %s", user_id)
-                refreshed = refresh_tokens(
-                    decrypt_secret(connection["ig_user_token_encrypted"]),
-                    ig_business_account_id,
-                )
-                page_token_encrypted = encrypt_secret(refreshed["new_page_token"])
+                refreshed = refresh_token(decrypt_secret(access_token_encrypted))
+                access_token_encrypted = encrypt_secret(refreshed["new_access_token"])
                 if not dry_run:
                     supabase.table("store_connections").update(
                         {
-                            "ig_access_token_encrypted": page_token_encrypted,
-                            "ig_user_token_encrypted": encrypt_secret(refreshed["new_user_token"]),
+                            "ig_access_token_encrypted": access_token_encrypted,
                             "ig_token_expires_at": refreshed["new_expires_at"],
                         }
                     ).eq("user_id", user_id).execute()
@@ -156,7 +152,7 @@ def run_publish(dry_run: bool) -> None:
 
             media_id = publish_story(
                 ig_business_account_id,
-                decrypt_secret(page_token_encrypted),
+                decrypt_secret(access_token_encrypted),
                 entry["image_public_url"],
             )
 
