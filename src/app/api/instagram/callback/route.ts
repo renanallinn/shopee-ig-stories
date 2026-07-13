@@ -11,7 +11,10 @@ import {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const code = url.searchParams.get("code");
+  // Instagram appends a "#_" suffix to the authorization code in some
+  // redirect flows — strip it before exchanging, or the exchange fails with
+  // a generic "Error validating verification code".
+  const code = url.searchParams.get("code")?.replace(/#_$/, "") ?? null;
   const state = url.searchParams.get("state");
   const errorParam = url.searchParams.get("error_description") ?? url.searchParams.get("error");
 
