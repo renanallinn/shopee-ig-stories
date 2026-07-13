@@ -15,6 +15,14 @@ export const INSTAGRAM_OAUTH_SCOPES = [
   "instagram_business_content_publish",
 ].join(",");
 
+// Fixed via env var rather than derived from the request URL — Instagram
+// requires the redirect_uri sent at token-exchange time to be byte-identical
+// to the one used in the authorize step, and re-deriving it from
+// request.url produced mismatches in Vercel's serverless environment.
+export function getInstagramRedirectUri() {
+  return `${process.env.SITE_URL}/api/instagram/callback`;
+}
+
 export function buildInstagramOAuthUrl(redirectUri: string, state: string) {
   const url = new URL("https://www.instagram.com/oauth/authorize");
   url.searchParams.set("client_id", process.env.INSTAGRAM_APP_ID!);

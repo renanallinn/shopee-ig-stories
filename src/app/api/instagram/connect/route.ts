@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase/server";
-import { buildInstagramOAuthUrl } from "@/lib/instagram";
+import { buildInstagramOAuthUrl, getInstagramRedirectUri } from "@/lib/instagram";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   }
 
   const state = randomBytes(16).toString("hex");
-  const redirectUri = new URL("/api/instagram/callback", request.url).toString();
+  const redirectUri = getInstagramRedirectUri();
   const oauthUrl = buildInstagramOAuthUrl(redirectUri, state);
 
   const response = NextResponse.redirect(oauthUrl);

@@ -6,6 +6,7 @@ import {
   exchangeForLongLivedToken,
   fetchInstagramAccount,
   expiresInToDate,
+  getInstagramRedirectUri,
 } from "@/lib/instagram";
 
 export async function GET(request: Request) {
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const redirectUri = new URL("/api/instagram/callback", request.url).toString();
+    const redirectUri = getInstagramRedirectUri();
     const { access_token: shortLivedToken } = await exchangeCodeForShortLivedToken(code, redirectUri);
     const { access_token: longLivedToken, expires_in: expiresIn } =
       await exchangeForLongLivedToken(shortLivedToken);
