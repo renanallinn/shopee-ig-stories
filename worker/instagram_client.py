@@ -9,13 +9,21 @@ both in sync if the Graph API version or flow changes.
 """
 
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
 
+logger = logging.getLogger(__name__)
+
 GRAPH_API_VERSION = "v21.0"
 GRAPH_BASE = f"https://graph.instagram.com/{GRAPH_API_VERSION}"
+
+# Instagram processes the uploaded image asynchronously — publishing before
+# the container reaches FINISHED fails with "Media ID is not available".
+CONTAINER_POLL_INTERVAL_SECONDS = 3
+CONTAINER_POLL_TIMEOUT_SECONDS = 60
 
 # Refresh proactively well before the ~60-day expiry so a missed run or two
 # doesn't leave a tenant stranded needing a manual browser re-login. Tokens
@@ -48,6 +56,26 @@ def _post(url: str, params: dict[str, str]) -> dict[str, Any]:
     return payload
 
 
+def _wait_until_container_ready(creation_id: str, access_token: str) -> None:
+    deadline = time.monotonic() + CONTAINER_POLL_TIMEOUT_SECONDS
+    while True:
+        status = _get(
+            f"{GRAPH_BASE}/{creation_id}",
+            {"fields": "status_code", "access_token": access_token},
+        )["status_code"]
+        if status == "FINISHED":
+            return
+        if status == "ERROR":
+            raise InstagramApiError(f"Media container {creation_id} failed processing (status ERROR)")
+        if time.monotonic() >= deadline:
+            raise InstagramApiError(
+                f"Media container {creation_id} did not finish processing within "
+                f"{CONTAINER_POLL_TIMEOUT_SECONDS}s (last status: {status})"
+            )
+        logger.info("Container %s not ready yet (status=%s), waiting...", creation_id, status)
+        time.sleep(CONTAINER_POLL_INTERVAL_SECONDS)
+
+
 def publish_story(ig_business_account_id: str, access_token: str, image_url: str) -> str:
     """Publishes a single image to Stories. Returns the published media id."""
     created = _post(
@@ -59,6 +87,8 @@ def publish_story(ig_business_account_id: str, access_token: str, image_url: str
         },
     )
     creation_id = created["id"]
+
+    _wait_until_container_ready(creation_id, access_token)
 
     published = _post(
         f"{GRAPH_BASE}/{ig_business_account_id}/media_publish",
