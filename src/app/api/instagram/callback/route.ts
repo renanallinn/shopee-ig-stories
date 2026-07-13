@@ -71,10 +71,10 @@ export async function GET(request: Request) {
     response.cookies.delete("ig_oauth_state");
     return response;
   } catch (err) {
-    dashboardUrl.searchParams.set(
-      "ig_error",
-      err instanceof Error ? err.message : "Erro desconhecido ao conectar o Instagram.",
-    );
+    // TEMP DEBUG: includes the redirect_uri actually used, to compare against
+    // what Instagram received in the authorize step. Remove once resolved.
+    const baseMessage = err instanceof Error ? err.message : "Erro desconhecido ao conectar o Instagram.";
+    dashboardUrl.searchParams.set("ig_error", `${baseMessage} [DEBUG redirect_uri=${getInstagramRedirectUri()}]`);
     return NextResponse.redirect(dashboardUrl);
   }
 }
