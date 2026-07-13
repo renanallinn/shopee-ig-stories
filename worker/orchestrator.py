@@ -64,14 +64,22 @@ def run_generate(dry_run: bool) -> None:
         try:
             products = get_products_for_tenant(connection)
 
-            state_res = (
-                supabase.table("posting_state")
-                .select("last_product_index")
-                .eq("user_id", user_id)
-                .maybe_single()
-                .execute()
-            )
-            current_index = (state_res.data or {}).get("last_product_index", 0)
+            # .maybe_single() should return data=None for a first-time user
+            # with no posting_state row yet, but postgrest can respond 406
+            # for the zero-row case, which some client versions surface as
+            # execute() returning None outright rather than data=None.
+            try:
+                state_res = (
+                    supabase.table("posting_state")
+                    .select("last_product_index")
+                    .eq("user_id", user_id)
+                    .maybe_single()
+                    .execute()
+                )
+                state_data = state_res.data if state_res else None
+            except Exception:
+                state_data = None
+            current_index = (state_data or {}).get("last_product_index", 0)
             product = products[current_index % len(products)]
             new_index = current_index + 1
 
